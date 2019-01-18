@@ -1,5 +1,7 @@
-# Image folder
-img/
+# Ignore image folder
+img/*
+#but keep one default file
+!img/defaultImg.png
 
 # Prerequisites
 *.d
