@@ -29,7 +29,7 @@ public:
 	@param ft Filtering type.
 	@param kl Kernel length. Minimum 1, and maximum 31
 	*/
-	static int filter(const cv::Mat src, cv::Mat dst, FILTER_TYPE ft, int kl = 3) {
+	static int filter(const cv::Mat &src, cv::Mat dst, FILTER_TYPE ft, int kl = 3) {
 		if(kl < 1) return -1;
 		int kern = kl;
 		if(kern > MAX_KERNEL_LENGTH) {

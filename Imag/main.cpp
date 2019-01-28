@@ -22,6 +22,13 @@ https://docs.opencv.org/2.4.13.2/doc/tutorials/imgproc/gausian_median_blur_bilat
 
 int showFilterAnimation(std::string caption, cv::Mat source, Filter::FILTER_TYPE ft, int minKl, int maxKl);
 
+static void blur(int val, void* data);
+
+struct Mats {
+	cv::Mat src;
+	cv::Mat dst;
+};
+
 int main() {
 	
 	std::string imgFolder	= "..//img//";
@@ -38,35 +45,53 @@ int main() {
 	}
 	cv::Mat dst = src.clone();
 
+	int kl = 1;
 	int minKl = 1;
 	int maxKl = 31;
 
-	showFilterAnimation(std::string("Box blur"), src, Filter::FILTER_TYPE::BOX, minKl, maxKl);
+	/*showFilterAnimation(std::string("Box blur"), src, Filter::FILTER_TYPE::BOX, minKl, maxKl);
 	showFilterAnimation(std::string("Median blur"), src, Filter::FILTER_TYPE::MEDIAN, minKl, maxKl);
 	showFilterAnimation(std::string("Gaussian blur"), src, Filter::FILTER_TYPE::GAUSSIAN, minKl, maxKl);
-	showFilterAnimation(std::string("Bilateral blur"), src, Filter::FILTER_TYPE::BI, minKl, maxKl);
+	showFilterAnimation(std::string("Bilateral blur"), src, Filter::FILTER_TYPE::BI, minKl, maxKl);*/
+	
+	/*Mats mats;
+	mats.src = src;
+	mats.dst = dst;*/
+
+	cv::imshow(windowName, src);
+
+	/// Create Windows
+	cv::namedWindow(windowName, 1);
+
+	/*
+	The last parameter, &src, is fucking important!! 
+	Never, ever remove it!
+	Last example of:
+	http://answers.opencv.org/question/91462/trackbar-pass-variable/
+	*/
+	cv::createTrackbar("Kernel size", windowName, &kl, maxKl, blur, &src);
+	blur(kl, &src);
 
 	// wait for keypress
 	cv::waitKey(0);
 }
 
-void showGrayscale(std::string imgPath) {
-
-	// Image as a matrix
-	cv::Mat img = cv::imread(imgPath, cv::IMREAD_COLOR);
-	if(!img.data) {
-		std::string err = " No image data found in " + imgPath + "! \n ";
-		printf(err.c_str());
+/*
+Blur trackbar callback function.
+*/
+static void blur(int val, void* object) {
+	cv::Mat src = *((cv::Mat*)object);
+	//std::cout << val << std::endl;
+	
+	cv::Mat blurred;
+	src.copyTo(blurred);
+	int err = Filter::filter(src, blurred, Filter::FILTER_TYPE::BOX, val);
+	if(err != 0) {
+		std::string errMsg = "Error while filtering.";
+		printf(errMsg.c_str());
 	}
-	// Grayscale copy of the image
-	cv::Mat gs_img;
-	cv::cvtColor(img, gs_img, cv::COLOR_BGR2GRAY);
-	// Write the new grey scale image to a file
-	//cv::imwrite(imgFolder + "gs_" + imgName, gs_img);
 
-	// Show images
-	cv::namedWindow("Grayscale", cv::WINDOW_AUTOSIZE);
-	cv::imshow("Grayscale", gs_img);
+	cv::imshow(windowName, blurred);
 }
 
 /*
@@ -119,4 +144,23 @@ int display(cv::Mat img, int delay) {
 	int c = cv::waitKey(delay);
 	if(c >= 0) { return -1; }
 	return 0;
+}
+
+void showGrayscale(std::string imgPath) {
+
+	// Image as a matrix
+	cv::Mat img = cv::imread(imgPath, cv::IMREAD_COLOR);
+	if(!img.data) {
+		std::string err = " No image data found in " + imgPath + "! \n ";
+		printf(err.c_str());
+	}
+	// Grayscale copy of the image
+	cv::Mat gs_img;
+	cv::cvtColor(img, gs_img, cv::COLOR_BGR2GRAY);
+	// Write the new grey scale image to a file
+	//cv::imwrite(imgFolder + "gs_" + imgName, gs_img);
+
+	// Show images
+	cv::namedWindow("Grayscale", cv::WINDOW_AUTOSIZE);
+	cv::imshow("Grayscale", gs_img);
 }
