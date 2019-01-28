@@ -90,24 +90,35 @@ static void furier(const std::string imgPath) {
 		std::string err = " No image data found in " + imgPath + "! \n ";
 		printf(err.c_str());
 	}
+	/*
+	The performance of a DFT is dependent of the image size. It tends to be 
+	the fastest for image sizes that are multiple of the numbers two, three and five. 
+	*/
 	cv::Mat padded;                            //expand input image to optimal size
 	int m = cv::getOptimalDFTSize(I.rows);
 	int n = cv::getOptimalDFTSize(I.cols); // on the border add zero values
 	cv::copyMakeBorder(I, padded, 0, m - I.rows, 0, n - I.cols, cv::BORDER_CONSTANT, cv::Scalar::all(0));
 
+	// Put padded marix and equal-sized zero matrix into one multichanneled
+	// matrix complexI
 	cv::Mat planes[] = { cv::Mat_<float>(padded), cv::Mat::zeros(padded.size(), CV_32F) };
 	cv::Mat complexI;
-	cv::merge(planes, 2, complexI);         // Add to the expanded another plane with zeros
+	cv::merge(planes, 2, complexI);
+	// In-place DFT to complexI
+	cv::dft(complexI, complexI);
 
-	cv::dft(complexI, complexI);            // this way the result may fit in the source matrix
-
-	// compute the magnitude and switch to logarithmic scale
 	// => log(1 + sqrt(Re(DFT(I))^2 + Im(DFT(I))^2))
 	cv::split(complexI, planes);                   // planes[0] = Re(DFT(I), planes[1] = Im(DFT(I))
-	cv::magnitude(planes[0], planes[1], planes[0]);// planes[0] = magnitude
-	cv::Mat magI = planes[0];
 
-	magI += cv::Scalar::all(1);                    // switch to logarithmic scale
+	//cv::imshow("Real image", planes[0]);
+	//cv::imshow("Complex image", planes[1]);
+
+	// Replace real-valued image with magnitude of complex image.
+	cv::magnitude(planes[0], planes[1], planes[0]);// planes[0] = magnitude
+	// Switch to logarithmic scale too see grayscale instead of
+	// black and white pixels.
+	cv::Mat magI = planes[0];
+	magI += cv::Scalar::all(1);
 	cv::log(magI, magI);
 
 	// crop the spectrum, if it has an odd number of rows or columns
@@ -143,15 +154,18 @@ static void furier(const std::string imgPath) {
 Blur trackbar callback function.
 */
 static void blur(int val, void* object) {
+	cv::Mat src = *((cv::Mat*)object);
+
 	if(val == 0) {
+		cv::imshow(windowName, src);
 		return;
 	}
-	cv::Mat src = *((cv::Mat*)object);
+
 	//std::cout << val << std::endl;
 	
 	cv::Mat blurred;
 	src.copyTo(blurred);
-	int err = Filter::filter(src, blurred, Filter::FILTER_TYPE::BOX, val);
+	int err = Filter::filter(src, blurred, Filter::FILTER_TYPE::BI, val);
 	if(err != 0) {
 		std::string errMsg = "Error while filtering.";
 		printf(errMsg.c_str());

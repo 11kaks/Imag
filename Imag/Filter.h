@@ -39,10 +39,10 @@ public:
 		case Filter::BOX:
 			return doBoxBlur(src, dst, kern);
 			break;
-		case Filter::MEDIAN:
+		case Filter::GAUSSIAN:
 			return doGaussianBlur(src, dst, kern);
 			break;
-		case Filter::GAUSSIAN:
+		case Filter::MEDIAN:
 			return doMedianBlur(src, dst, kern);
 			break;
 		case Filter::BI:
@@ -77,13 +77,15 @@ public:
 	@param kl Kernel radius. Minimum 1, and maximum 31.
 	*/
 	static int doGaussianBlur(const cv::Mat src, cv::Mat dst, int kl = 3) {
-		GaussianBlur(src, dst, cv::Size(kl, kl), 0, 0);
+		int kern = kl * 2 - 1;
+		GaussianBlur(src, dst, cv::Size(kern, kern), 0, 0);
 		return 0;
 	}
 
 	static int doMedianBlur(const cv::Mat src, cv::Mat dst, int kl = 3) {
-			medianBlur(src, dst, kl);
-			return 0;
+		int kern = kl * 2 - 1;
+		medianBlur(src, dst, kern);
+		return 0;
 	}
 
 	static int doBilateralBlur(const cv::Mat src, cv::Mat dst, int kl = 3) {
