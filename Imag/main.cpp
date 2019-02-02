@@ -25,6 +25,7 @@ https://docs.opencv.org/2.4.13.2/doc/tutorials/imgproc/gausian_median_blur_bilat
 int showFilterAnimation(std::string caption, cv::Mat source, Filter::FILTER_TYPE ft, int minKl, int maxKl);
 
 static void blur(int val, void* data);
+static void binarize(int val, void * object);
 
 struct Mats {
 	cv::Mat src;
@@ -34,8 +35,8 @@ struct Mats {
 int main() {
 	
 	std::string imgFolder	= "..//img//";
-	std::string imgName		= "cube1";
-	std::string imgType = ".png";
+	std::string imgName		= "kyykky";
+	std::string imgType = ".jpg";
 	std::string imgPath = imgFolder + imgName + imgType;
 
 	//showGrayscale(imgPath);
@@ -44,6 +45,8 @@ int main() {
 	if(!src.data) {
 		std::string err = " No image data found in " + imgPath + "! \n ";
 		printf(err.c_str());
+		cv::waitKey(0);
+		exit(1);
 	}
 	cv::Mat dst = src.clone();
 
@@ -74,11 +77,45 @@ int main() {
 	//cv::createTrackbar("Kernel size", windowName, &kl, maxKl, blur, &src);
 	//blur(kl, &src);
 
-	furier(imgPath);
+	//furier(imgPath);
 
+	// Morpholgy
+	/*int size = 9;
+	cv::Mat elem = cv::getStructuringElement(0, cv::Size(size, size));
+	cv::morphologyEx(src, dst, cv::MORPH_OPEN, elem);
+	cv::imshow(windowName, dst);*/
+
+	int tresh = 0;
+	int maxTresh = 255;
+
+	// Binarization
+	cv::Mat srcBW;
+	cv::cvtColor(src, srcBW, cv::COLOR_RGB2GRAY);
+	//cv::threshold(srcBW, dst, 100, 255, 0);
+	//cv::imshow(windowName, dst);
+	cv::createTrackbar("Kernel size", windowName, &tresh, maxTresh, binarize, &srcBW);
+	binarize(tresh, &srcBW);
 	// wait for keypress
 	cv::waitKey(0);
 }
+
+static void binarize(int val, void * object){
+	cv::Mat srcBW = *((cv::Mat*)object);
+
+	if(val == 0) {
+		cv::imshow(windowName, srcBW);
+		return;
+	}
+
+	//std::cout << val << std::endl;
+
+	cv::Mat binarized;
+	srcBW.copyTo(binarized);
+	cv::threshold(srcBW, binarized, val, 255, 1);
+
+	cv::imshow(windowName, binarized);
+}
+
 
 /*
 Code from tutorial:

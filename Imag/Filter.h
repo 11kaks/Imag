@@ -2,14 +2,17 @@
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
+
 
 class Filter
 {
 public:
-
+	
 	static const int MAX_KERNEL_LENGTH = 31;
-
+	
 	Filter() {};
+
 	~Filter() {};
 
 	enum FILTER_TYPE {
@@ -17,7 +20,7 @@ public:
 		MEDIAN,
 		GAUSSIAN,
 		BI
-	};
+	};	
 
 	/*
 	Do some basic blurs to source image and put the result into
@@ -64,7 +67,7 @@ public:
 		@param kl Kernel length. Minimum 1, and maximum 31.
 	*/
 	static int doBoxBlur(const cv::Mat src, cv::Mat dst, int kl = 3) {
-		blur(src, dst, cv::Size(kl, kl), cv::Point(-1,-1));
+		blur(src, dst, cv::Size(kl, kl), cv::Point(-1, -1));
 		return 0;
 	}
 
@@ -89,8 +92,10 @@ public:
 	}
 
 	static int doBilateralBlur(const cv::Mat src, cv::Mat dst, int kl = 3) {
-			bilateralFilter(src, dst, kl, kl * 2, kl / 2);
-			return 0;
+		bilateralFilter(src, dst, kl, kl * 2, kl / 2);
+		return 0;
 	}
+
+	private:
 };
 
