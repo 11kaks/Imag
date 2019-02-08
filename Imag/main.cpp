@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <stdlib.h>     /* abs */
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -27,16 +28,18 @@ int showFilterAnimation(std::string caption, cv::Mat source, Filter::FILTER_TYPE
 static void blur(int val, void* data);
 static void binarize(int val, void * object);
 
-struct Mats {
-	cv::Mat src;
-	cv::Mat dst;
-};
+static void detectCircles(cv::Mat &scr_gray, cv::Mat &scr_display);
+static void detectLines(cv::Mat &scr_gray, cv::Mat &src_display);
+
+
+std::string imgFolder = "..//img//";
+std::string imgName = "kyykky";
+std::string imgType = ".jpg";
+
+std::string saveFolder = "saved//";
 
 int main() {
 	
-	std::string imgFolder	= "..//img//";
-	std::string imgName		= "kyykky";
-	std::string imgType = ".jpg";
 	std::string imgPath = imgFolder + imgName + imgType;
 
 	//showGrayscale(imgPath);
@@ -89,14 +92,86 @@ int main() {
 	int maxTresh = 255;
 
 	// Binarization
-	cv::Mat srcBW;
-	cv::cvtColor(src, srcBW, cv::COLOR_RGB2GRAY);
-	//cv::threshold(srcBW, dst, 100, 255, 0);
-	//cv::imshow(windowName, dst);
-	cv::createTrackbar("Kernel size", windowName, &tresh, maxTresh, binarize, &srcBW);
-	binarize(tresh, &srcBW);
+	cv::Mat scr_gray;
+	cv::cvtColor(src, scr_gray, cv::COLOR_RGB2GRAY);
+	//cv::createTrackbar("Kernel size", windowName, &tresh, maxTresh, binarize, &scr_gray);
+	//binarize(tresh, &scr_gray);
+
+	/// Circles
+
+	  /// Reduce the noise so we avoid false circle detection
+	//cv::GaussianBlur(srcBW, srcBW, cv::Size(9, 9), 2, 2);
+
+	detectCircles(scr_gray, src);
+	//detectLines(scr_gray, src);
+	/// Circles end
+
 	// wait for keypress
 	cv::waitKey(0);
+}
+
+static void detectLines(cv::Mat &src_gray, cv::Mat &src_display) {
+
+	cv::Mat display = src_display.clone();
+	cv::Mat src = src_gray.clone();
+	//cv::threshold(src, src, 155, 255, 1);
+	Canny(src, src, 50, 200, 3);
+
+	std::vector<cv::Vec4i> lines;
+
+	HoughLinesP(src, lines, 1, CV_PI / 180, 50, 50, 10);
+
+	if(lines.size() == 0) {
+		std::cout << "No lines detected." << std::endl;
+	} else {
+		std::cout << "Detected " << lines.size() << " lines. " << std::endl;
+		/// Draw the detected lines
+		for(size_t i = 0; i < lines.size(); i++) {
+			cv::Vec4i l = lines[i];
+			cv::Point p1(l[0], l[1]);
+			cv::Point p2(l[2], l[3]);
+			if(abs(p1.x - p2.x) < 15){
+				std::cout << "Detected a vertical line. " << std::endl;
+				cv::line(display, p1, p2, cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
+			}
+		}
+	}
+	cv::namedWindow("Detected lines", cv::WINDOW_AUTOSIZE);
+	cv::imshow("Detected lines", display);
+
+}
+
+static void detectCircles(cv::Mat &src_gray, cv::Mat &src_display) {
+	
+	cv::threshold(src_gray, src_gray, 24, 255, 1);
+
+	std::vector<cv::Vec3f> circles;
+
+	/// Apply the Hough Transform to find the circles
+	cv::HoughCircles(src_gray, circles, cv::HOUGH_GRADIENT, 1, src_gray.rows / 8, 5, 30, 0, 100);
+
+	cv::Mat display = src_display.clone();
+
+	if(circles.size() == 0) {
+		std::cout << "No circles detected." << std::endl;
+	} else {
+		std::cout << "Detected " << circles.size() << " circles. " << std::endl;
+		/// Draw the circles detected
+		for(size_t i = 0; i < circles.size(); i++) {
+			cv::Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+			int radius = cvRound(circles[i][2]);
+			// circle center
+			circle(display, center, 3, cv::Scalar(0, 255, 0), -1, 8, 0);
+			// circle outline
+			circle(display, center, radius, cv::Scalar(0, 0, 255), 2, 8, 0);
+		}
+	}
+	// Save
+	//cv::imwrite(imgFolder + saveFolder + imgName + "_circles" + imgType, display);
+
+	/// Show your results
+	cv::namedWindow("Circles", cv::WINDOW_AUTOSIZE);
+	cv::imshow("Circles", display);
 }
 
 static void binarize(int val, void * object){
