@@ -32,7 +32,7 @@ static void binarize(int val, void * object);
 static void detectCircles(cv::Mat &scr_gray, cv::Mat &scr_display);
 static void detectLines(cv::Mat &scr_gray, cv::Mat &src_display);
 
-static void vid();
+static void vid(std::string &vidPath);
 
 std::string imgFolder = "..//img//";
 std::string imgName = "kyykky";
@@ -45,14 +45,60 @@ std::string vidType = ".mp4";
 std::string saveFolder = "saved//";
 
 /* How long time a single frame takes. */
-float timePerFrameMs = 33.f;
+double timePerFrameMs = 33.f;
 int frameWidth = 120;
 int frameHeight = 120;
 cv::Point2d frameCenter(1, 1);
 
+int startFrame = 0;
+int endFrame = 100;
+
+int rotation = 90;
+
+
+static bool askYesNo(const char* promt) {
+	std::cout << promt << " (y/n)" << std::endl;
+	std::string ansS;
+	std::cin >> ansS;
+	char ans = ansS[0];
+	ans = std::toupper(ans);
+	//std::cout << ans << std::endl;
+	if(ans == 'Y') {
+		return true;
+	} else if(ans == 'N') {
+		return false;
+	} else {
+		std::cout << "Answer not recogniced. Please answer yes or no." << std::endl;
+		return askYesNo(promt);
+	}
+}
+
+static int askInt(const char* promt) {
+	std::cout << promt << " (y/n)" << std::endl;
+	std::string ansS;
+	std::cin >> ansS;
+	try {
+		int ans = std::stoi(ansS);
+		return ans;
+	} catch(std::invalid_argument e) {
+		std::cout << "Invalid argument (" << ansS << "). Give an integer value with or without minus sign. " << std::endl;
+		return askInt(promt);
+	} catch(std::out_of_range e) {
+		std::cout << "Value (" << ansS << ") out of integer range (" << INT_MIN << "," << INT_MAX << ")." << std::endl;
+		return askInt(promt);
+	}
+}
+
+static void scratchToStart() {
+	// TODO create  awindow with a time track bar
+}
+
+static void scratchToEnd() {
+
+}
 
 int main() {
-	
+
 	std::string imgPath = imgFolder + imgName + imgType;
 
 	//showGrayscale(imgPath);
@@ -74,7 +120,7 @@ int main() {
 	showFilterAnimation(std::string("Median blur"), src, Filter::FILTER_TYPE::MEDIAN, minKl, maxKl);
 	showFilterAnimation(std::string("Gaussian blur"), src, Filter::FILTER_TYPE::GAUSSIAN, minKl, maxKl);
 	showFilterAnimation(std::string("Bilateral blur"), src, Filter::FILTER_TYPE::BI, minKl, maxKl);*/
-	
+
 	/*Mats mats;
 	mats.src = src;
 	mats.dst = dst;*/
@@ -85,7 +131,7 @@ int main() {
 	cv::namedWindow(windowName, 1);
 
 	/*
-	The last parameter, &src, is fucking important!! 
+	The last parameter, &src, is fucking important!!
 	Never, ever remove it!
 	Last example of:
 	http://answers.opencv.org/question/91462/trackbar-pass-variable/
@@ -120,21 +166,23 @@ int main() {
 	/// Circles end
 
 	/*
-	TODO: 
+	TODO:
 
-	rotate
-	detect framerate
-	detect width, height and center point
+	rotate - ok
+	detect framerate - ok
+	detect width, height and center point - ok
 	scratch the beginning and the end times
 	go to first frame and:
 		detect circle
 		run search for the rest of the frames and follow the circle
 		save circle's center points
-	analyze stuff from center points
-	
+	analyze stuff from center points§
+
 	*/
 
-	vid();
+	std::string vidPath = vidFolder + vidName + vidType;
+
+	vid(vidPath);
 
 	// wait for keypress
 	cv::waitKey(0);
@@ -142,31 +190,48 @@ int main() {
 
 
 
-static void vid() {
-	std::string vidFolder = "..//vid//";
-	std::string vidName = "mak1";
-	std::string vidType = ".mp4";
+static void vid(std::string &vidPath) {
 
-	std::string vidPath = vidFolder + vidName + vidType;
 
 	cv::VideoCapture cap(vidPath);
+	cv::Mat frame;
 
 	if(!cap.isOpened()) {
 		std::cerr << "Opening video file from " << vidPath << " failed." << std::endl;
 	}
 
-	cv::Mat frame;
-	float lastTimeMs = 0.f;
-	float currTimeMs = 0.f;
-	while(cap.read(frame)) {
-		currTimeMs = cap.get(cv::CAP_PROP_POS_MSEC);
-		std::cout <<  currTimeMs - lastTimeMs << std::endl;
-		lastTimeMs = currTimeMs;
-		FrameUtils::rotate_90n(frame, frame, 90);
-		cv::imshow(windowName, frame);
-		if(cv::waitKey(30) >= 0) break;
-	}
+	// take the first frame for getting some basic info about the video
+	cap.read(frame);
+	timePerFrameMs = cap.get(cv::CAP_PROP_POS_MSEC);
+	frameWidth = cap.get(cv::CAP_PROP_FRAME_WIDTH);
+	frameHeight = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
 
+
+	//cv::Mat frame;
+	while(cap.read(frame)) {
+
+		FrameUtils::rotate_90n(frame, frame, rotation);
+		cv::imshow(windowName, frame);
+
+		//cv::Mat scr_gray;
+		//cv::cvtColor(frame, scr_gray, cv::COLOR_RGB2GRAY);
+		//detectCircles(scr_gray, frame);
+
+		// Waitkey call gives time to HighGui to process the draw
+		int key = cv::waitKey(timePerFrameMs);
+
+		switch(key) {
+		// escape
+		case 27:
+			break;
+		// rotate = r
+		case 114:
+			rotation = askInt("Give desired rotation in right angles (90, -180,..). Positive value rotates to counterclockwise direction.");
+			continue;
+		default:
+			break;
+		}
+	}
 
 	cap.release();
 }
@@ -191,7 +256,7 @@ static void detectLines(cv::Mat &src_gray, cv::Mat &src_display) {
 			cv::Vec4i l = lines[i];
 			cv::Point p1(l[0], l[1]);
 			cv::Point p2(l[2], l[3]);
-			if(abs(p1.x - p2.x) < 15){
+			if(abs(p1.x - p2.x) < 15) {
 				std::cout << "Detected a vertical line. " << std::endl;
 				cv::line(display, p1, p2, cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
 			}
@@ -203,7 +268,7 @@ static void detectLines(cv::Mat &src_gray, cv::Mat &src_display) {
 }
 
 static void detectCircles(cv::Mat &src_gray, cv::Mat &src_display) {
-	
+
 	cv::threshold(src_gray, src_gray, 24, 255, 1);
 
 	std::vector<cv::Vec3f> circles;
@@ -235,7 +300,7 @@ static void detectCircles(cv::Mat &src_gray, cv::Mat &src_display) {
 	cv::imshow("Circles", display);
 }
 
-static void binarize(int val, void * object){
+static void binarize(int val, void * object) {
 	cv::Mat srcBW = *((cv::Mat*)object);
 
 	if(val == 0) {
@@ -264,8 +329,8 @@ static void furier(const std::string imgPath) {
 		printf(err.c_str());
 	}
 	/*
-	The performance of a DFT is dependent of the image size. It tends to be 
-	the fastest for image sizes that are multiple of the numbers two, three and five. 
+	The performance of a DFT is dependent of the image size. It tends to be
+	the fastest for image sizes that are multiple of the numbers two, three and five.
 	*/
 	cv::Mat padded;                            //expand input image to optimal size
 	int m = cv::getOptimalDFTSize(I.rows);
@@ -335,7 +400,7 @@ static void blur(int val, void* object) {
 	}
 
 	//std::cout << val << std::endl;
-	
+
 	cv::Mat blurred;
 	src.copyTo(blurred);
 	int err = Filter::filter(src, blurred, Filter::FILTER_TYPE::BI, val);
@@ -350,7 +415,7 @@ static void blur(int val, void* object) {
 /*
 	Do filter series.
 */
-int showFilterAnimation(std::string caption, cv::Mat source, Filter::FILTER_TYPE ft, int minKl, int maxKl ) {
+int showFilterAnimation(std::string caption, cv::Mat source, Filter::FILTER_TYPE ft, int minKl, int maxKl) {
 
 	// Time caption is shown.
 	int DELAY_CAPTION = 1500;
@@ -360,7 +425,7 @@ int showFilterAnimation(std::string caption, cv::Mat source, Filter::FILTER_TYPE
 	displayCaption(source, caption, DELAY_CAPTION);
 
 	for(int i = minKl; i < maxKl; i = i + 2) {
-		cv::Mat blurred; 
+		cv::Mat blurred;
 		source.copyTo(blurred);
 		int err = Filter::filter(source, blurred, ft, i);
 		if(err != 0) {
@@ -390,7 +455,7 @@ int displayCaption(const cv::Mat img, std::string caption, int capTime) {
 }
 
 /*
-	Shows given image. 
+	Shows given image.
 */
 int display(cv::Mat img, int delay) {
 	imshow(windowName, img);
