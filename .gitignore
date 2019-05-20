@@ -2,6 +2,8 @@
 img/*
 #but keep one default file
 !img/defaultImg.png
+# Ignore video folder
+vid/*
 
 # Prerequisites
 *.d

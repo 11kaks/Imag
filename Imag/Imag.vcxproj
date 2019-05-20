@@ -20,9 +20,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Filter.h" />
+    <ClInclude Include="FrameUtils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Filter.cpp" />
+    <ClCompile Include="FrameUtils.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

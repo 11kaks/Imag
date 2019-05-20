@@ -7,6 +7,7 @@
 #include <opencv2/highgui.hpp>
 
 #include "Filter.h"
+#include "FrameUtils.h"
 
 const char windowName[] = "Imag";
 
@@ -31,12 +32,24 @@ static void binarize(int val, void * object);
 static void detectCircles(cv::Mat &scr_gray, cv::Mat &scr_display);
 static void detectLines(cv::Mat &scr_gray, cv::Mat &src_display);
 
+static void vid();
 
 std::string imgFolder = "..//img//";
 std::string imgName = "kyykky";
 std::string imgType = ".jpg";
 
+std::string vidFolder = "..//vid//";
+std::string vidName = "mak1";
+std::string vidType = ".mp4";
+
 std::string saveFolder = "saved//";
+
+/* How long time a single frame takes. */
+float timePerFrameMs = 33.f;
+int frameWidth = 120;
+int frameHeight = 120;
+cv::Point2d frameCenter(1, 1);
+
 
 int main() {
 	
@@ -66,7 +79,7 @@ int main() {
 	mats.src = src;
 	mats.dst = dst;*/
 
-	cv::imshow(windowName, src);
+	//cv::imshow(windowName, src);
 
 	/// Create Windows
 	cv::namedWindow(windowName, 1);
@@ -102,12 +115,60 @@ int main() {
 	  /// Reduce the noise so we avoid false circle detection
 	//cv::GaussianBlur(srcBW, srcBW, cv::Size(9, 9), 2, 2);
 
-	detectCircles(scr_gray, src);
+	//detectCircles(scr_gray, src);
 	//detectLines(scr_gray, src);
 	/// Circles end
 
+	/*
+	TODO: 
+
+	rotate
+	detect framerate
+	detect width, height and center point
+	scratch the beginning and the end times
+	go to first frame and:
+		detect circle
+		run search for the rest of the frames and follow the circle
+		save circle's center points
+	analyze stuff from center points
+	
+	*/
+
+	vid();
+
 	// wait for keypress
 	cv::waitKey(0);
+}
+
+
+
+static void vid() {
+	std::string vidFolder = "..//vid//";
+	std::string vidName = "mak1";
+	std::string vidType = ".mp4";
+
+	std::string vidPath = vidFolder + vidName + vidType;
+
+	cv::VideoCapture cap(vidPath);
+
+	if(!cap.isOpened()) {
+		std::cerr << "Opening video file from " << vidPath << " failed." << std::endl;
+	}
+
+	cv::Mat frame;
+	float lastTimeMs = 0.f;
+	float currTimeMs = 0.f;
+	while(cap.read(frame)) {
+		currTimeMs = cap.get(cv::CAP_PROP_POS_MSEC);
+		std::cout <<  currTimeMs - lastTimeMs << std::endl;
+		lastTimeMs = currTimeMs;
+		FrameUtils::rotate_90n(frame, frame, 90);
+		cv::imshow(windowName, frame);
+		if(cv::waitKey(30) >= 0) break;
+	}
+
+
+	cap.release();
 }
 
 static void detectLines(cv::Mat &src_gray, cv::Mat &src_display) {
