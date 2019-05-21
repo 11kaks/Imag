@@ -59,6 +59,8 @@ int currFrame = 0;
 int cutStartFrame = 0;
 int cutEndFrame = 100;
 
+int binarizeTreshold = 1;
+
 std::vector<cv::Mat> timeLine;
 
 int rotation = 90;
@@ -163,12 +165,12 @@ int main() {
 	cv::morphologyEx(src, dst, cv::MORPH_OPEN, elem);
 	cv::imshow(windowName, dst);*/
 
-	int tresh = 0;
-	int maxTresh = 255;
+	//int tresh = 0;
+	//int maxTresh = 255;
 
 	// Binarization
-	cv::Mat scr_gray;
-	cv::cvtColor(src, scr_gray, cv::COLOR_RGB2GRAY);
+	//cv::Mat scr_gray;
+	//cv::cvtColor(src, scr_gray, cv::COLOR_RGB2GRAY);
 	//cv::createTrackbar("Kernel size", windowName, &tresh, maxTresh, binarize, &scr_gray);
 	//binarize(tresh, &scr_gray);
 
@@ -187,9 +189,9 @@ int main() {
 	rotate - ok
 	detect framerate - ok
 	detect width, height and center point - ok
-	scratch the beginning and the end times
+	scratch the beginning and the end times - ok
 	go to first frame and:
-		detect circle
+		detect circles
 		run search for the rest of the frames and follow the circle
 		save circle's center points
 	analyze stuff from center pointsß
@@ -199,6 +201,17 @@ int main() {
 	std::string vidPath = vidFolder + vidName + vidType;
 
 	vid(vidPath);
+
+
+	int tresh = 125;
+	int maxTresh = 255;
+
+	// Binarization
+	src = timeLine[cutStartFrame];
+	cv::Mat scr_gray;
+	cv::cvtColor(src, scr_gray, cv::COLOR_RGB2GRAY);
+	cv::createTrackbar("Kernel size", windowName, &tresh, maxTresh, binarize, &scr_gray);
+	binarize(tresh, &scr_gray);
 
 	// wait for keypress
 	cv::waitKey(0);
@@ -232,6 +245,7 @@ static void cropEnd(int val, void* object) {
 }
 static void vid(std::string &vidPath) {
 
+	// TODO: siirr‰ mainiin t‰‰ sotku, jos vaikka binarisointi toimis
 
 	cv::VideoCapture cap(vidPath);
 	cv::Mat frame;
@@ -266,10 +280,12 @@ static void vid(std::string &vidPath) {
 		FrameUtils::rotate_90n(timeLine[i], timeLine[i], rotation);
 	}
 	cap.release();
+	std::cout << "done" << std::endl;
 
 	int startFrame = 0;
 	int lastFrame = initialFrameCount-1;
 
+	/*
 	cv::createTrackbar("Frame", windowCutStart, &startFrame, lastFrame, cropStart);
 	cropStart(startFrame, 0);
 
@@ -282,10 +298,15 @@ static void vid(std::string &vidPath) {
 	cv::createTrackbar("Frame", windowCutEnd, &startFrame, lastFrame, cropEnd);
 	cropEnd(startFrame, 0);
 
-	cv::imshow(windowName, timeLine[startFrame]);
+	cv::imshow(windowName, timeLine[cutStartFrame]);
 	while(cv::waitKey(1) < 0);
 
 	std::cout << "Cut end set to frame " << cutEndFrame << std::endl;
+	*/
+
+	// Debugging values. remove
+	cutStartFrame = 278;
+	cutEndFrame = 900;
 
 
 
@@ -361,6 +382,7 @@ static void detectCircles(cv::Mat &src_gray, cv::Mat &src_display) {
 }
 
 static void binarize(int val, void * object) {
+	
 	cv::Mat srcBW = *((cv::Mat*)object);
 
 	if(val == 0) {
@@ -373,8 +395,10 @@ static void binarize(int val, void * object) {
 	cv::Mat binarized;
 	srcBW.copyTo(binarized);
 	cv::threshold(srcBW, binarized, val, 255, 1);
-
+	
 	cv::imshow(windowName, binarized);
+
+	//detectCircles(binarized, binarized);
 }
 
 
