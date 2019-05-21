@@ -10,6 +10,8 @@
 #include "FrameUtils.h"
 
 const char windowName[] = "Imag";
+const char windowCutStart[] = "Cut Start";
+const char windowCutEnd[] = "Cut End";
 
 // Function headers
 int displayCaption(const cv::Mat img, std::string caption, int capTime);
@@ -48,12 +50,26 @@ std::string saveFolder = "saved//";
 double timePerFrameMs = 33.f;
 int frameWidth = 120;
 int frameHeight = 120;
+int initialFrameCount = 0;
 cv::Point2d frameCenter(1, 1);
 
 int startFrame = 0;
 int endFrame = 100;
+int currFrame = 0;
+int cutStartFrame = 0;
+int cutEndFrame = 100;
+
+std::vector<cv::Mat> timeLine;
 
 int rotation = 90;
+
+enum STATE {
+	DEFAULT,
+	CUT_START
+};
+
+STATE currState = DEFAULT;
+
 
 
 static bool askYesNo(const char* promt) {
@@ -188,8 +204,32 @@ int main() {
 	cv::waitKey(0);
 }
 
+static void showFrame(const char * window) {
+	//FrameUtils::rotate_90n(timeLine[currFrame], timeLine[currFrame], rotation);
+	cv::imshow(window, timeLine[currFrame]);
+	//cv::waitKey(0);
+}
 
+static void cropStart(int val, void* object) {
 
+	if(val < timeLine.size() && val >= 0) {
+		currFrame = val;
+		cutStartFrame = val;
+		cv::imshow(windowCutStart, timeLine[currFrame]);
+	} else {
+		std::cout << "timeLine not ok"<< std::endl;
+	}
+}
+static void cropEnd(int val, void* object) {
+
+	if(val < timeLine.size() && val >= 0) {
+		currFrame = val;
+		cutStartFrame = val;
+		cv::imshow(windowCutStart, timeLine[currFrame]);
+	} else {
+		std::cout << "timeLine not ok" << std::endl;
+	}
+}
 static void vid(std::string &vidPath) {
 
 
@@ -200,40 +240,60 @@ static void vid(std::string &vidPath) {
 		std::cerr << "Opening video file from " << vidPath << " failed." << std::endl;
 	}
 
+	std::cout << "Loading video... " << std::endl;
+
 	// take the first frame for getting some basic info about the video
 	cap.read(frame);
+
 	timePerFrameMs = cap.get(cv::CAP_PROP_POS_MSEC);
 	frameWidth = cap.get(cv::CAP_PROP_FRAME_WIDTH);
 	frameHeight = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
+	initialFrameCount = cap.get(cv::CAP_PROP_FRAME_COUNT);
+	cutEndFrame = initialFrameCount;
 
+	//cv::namedWindow(windowCutStart, 1);
+	//cv::namedWindow(windowCutEnd, 1);
 
-	//cv::Mat frame;
-	while(cap.read(frame)) {
+	timeLine = std::vector<cv::Mat>(initialFrameCount);
 
-		FrameUtils::rotate_90n(frame, frame, rotation);
-		cv::imshow(windowName, frame);
-
-		//cv::Mat scr_gray;
-		//cv::cvtColor(frame, scr_gray, cv::COLOR_RGB2GRAY);
-		//detectCircles(scr_gray, frame);
-
-		// Waitkey call gives time to HighGui to process the draw
-		int key = cv::waitKey(timePerFrameMs);
-
-		switch(key) {
-		// escape
-		case 27:
-			break;
-		// rotate = r
-		case 114:
-			rotation = askInt("Give desired rotation in right angles (90, -180,..). Positive value rotates to counterclockwise direction.");
-			continue;
-		default:
-			break;
-		}
+	timeLine[0] = frame.clone();
+	FrameUtils::rotate_90n(timeLine[0], timeLine[0], rotation);
+	cv::imshow(windowCutStart, timeLine[0]);
+	//cv::waitKey(0);
+	for(size_t i = 1; i < timeLine.size(); ++i) {
+		cap.read(frame);
+		timeLine[i] = frame.clone();
+		FrameUtils::rotate_90n(timeLine[i], timeLine[i], rotation);
 	}
-
 	cap.release();
+
+	int startFrame = 0;
+	int lastFrame = initialFrameCount-1;
+
+	cv::createTrackbar("Frame", windowCutStart, &startFrame, lastFrame, cropStart);
+	cropStart(startFrame, 0);
+
+	cv::imshow(windowName, timeLine[0]);
+	while(cv::waitKey(1) < 0);
+
+	startFrame = cutStartFrame;
+	std::cout << "Cut start set to frame " << cutStartFrame << std::endl;
+
+	cv::createTrackbar("Frame", windowCutEnd, &startFrame, lastFrame, cropEnd);
+	cropEnd(startFrame, 0);
+
+	cv::imshow(windowName, timeLine[startFrame]);
+	while(cv::waitKey(1) < 0);
+
+	std::cout << "Cut end set to frame " << cutEndFrame << std::endl;
+
+
+
+	/*for(cv::Mat f : timeLine) {
+		cv::imshow(windowName, f);
+		if(cv::waitKey(timePerFrameMs) >= 0)
+			break;
+	}*/
 }
 
 static void detectLines(cv::Mat &src_gray, cv::Mat &src_display) {
