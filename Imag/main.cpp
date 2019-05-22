@@ -5,6 +5,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
+#include <opencv2/video.hpp>
 
 #include "Filter.h"
 #include "FrameUtils.h"
@@ -28,6 +29,7 @@ static void detectCircles();
 static void detectLines(cv::Mat &scr_gray, cv::Mat &src_display);
 
 static void loadVideo(std::string &vidPath);
+cv::Point sirkkeli(int idx);
 
 /* Console input y/n. */
 static bool askYesNo(const char* promt);
@@ -56,6 +58,7 @@ int endFrame = 100;
 int currFrame = 0;
 int cutStartFrame = 0;
 int cutEndFrame = 100;
+int cutLength = 0;
 
 /* Binarization treshold. */
 int binVal = 60;
@@ -67,6 +70,8 @@ cv::Scalar circleColor(150, 10, 10);
 
 /* All the frames in the video. */
 std::vector<cv::Mat> timeLine;
+
+std::vector<cv::Point> centerPoints;
 
 /* The frame that shoud be currently shown. Take a copy for drawing. */
 cv::Mat showingFrame;
@@ -122,130 +127,74 @@ int main() {
 	int tresh = 1;
 	int maxTresh = 255;
 
-	std::cout << "Drag the slider until the barbell is clearly visible." << std::endl;
+//	std::cout << "Drag the slider until the barbell is clearly visible." << std::endl;
 
 	// Binarization
-	cv::createTrackbar("Kernel size", windowName, &tresh, maxTresh, binarizeCallback, &frameGray);
-	binarizeCallback(tresh, &frameGray);
+	//cv::createTrackbar("Kernel size", windowName, &tresh, maxTresh, binarizeCallback, &frameGray);
+	//binarizeCallback(tresh, &frameGray);
 
-	cv::waitKey(0);
+	// Debug
+	binVal = 65;
+
+	//cv::waitKey(0);
 
 	std::cout << "Binarization kernel size set to " << binVal << "." << std::endl;
 
-	detectFirstCircle();
+	//detectFirstCircle();
+
+	centerPoints = std::vector<cv::Point>(cutLength);
+
+	roi = cv::selectROI(windowName, showingFrame);
+
+	std::cout << "Processing the video..." << std::endl;
+
+	// Adapted from tutorial https://docs.opencv.org/3.4/d7/d00/tutorial_meanshift.html
+	cv::Mat frame, roiFrame, hsv_roi, mask;
+	// take first frame of the video
+	frame = timeLine[cutStartFrame];
+	// setup initial location of window
+	// set up the ROI for tracking
+	roiFrame = frame(roi);
+	cv::cvtColor(roiFrame, hsv_roi, cv::COLOR_BGR2HSV);
+	cv::inRange(hsv_roi, cv::Scalar(0, 60, 32), cv::Scalar(180, 255, 255), mask);
+	float range_[] = { 0, 180 };
+	const float* range[] = { range_ };
+	cv::Mat roi_hist;
+	int histSize[] = { 180 };
+	int channels[] = { 0 };
+	cv::calcHist(&hsv_roi, 1, channels, mask, roi_hist, 1, histSize, range);
+	cv::normalize(roi_hist, roi_hist, 0, 255, cv::NORM_MINMAX);
+
+	// Setup the termination criteria, either 10 iteration or move by atleast 1 pt
+	cv::TermCriteria term_crit(cv::TermCriteria::EPS | cv::TermCriteria::COUNT, 10, 1);
+
+	for(int i = 0; i < cutLength; ++i) {
+		cv::Mat hsv, dst;
+		frame = timeLine[i];
+		if(frame.empty())
+			break;
+		cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
+		cv::calcBackProject(&hsv, 1, channels, roi_hist, dst, range);
+		// apply meanshift to get the new location
+		cv::meanShift(dst, roi, term_crit);
+		// Draw it on image
+		cv::rectangle(frame, roi, 255, 2);
+
+		cv::Point center(cvRound(roi.x + (roi.width/2)), cvRound(roi.y + (roi.height / 2)));
+		centerPoints[i] = center;
+		circle(frame, center, 3, circleColor, -1, 8, 0);
+
+		//cv::imshow(windowName, frame);
+		//int keyboard = cv::waitKey(30);
+		//if(keyboard == 'q' || keyboard == 27)
+		//	break;
+	}
+
+	std::cout << "done" << std::endl;
 
 	cv::waitKey(0);
 }
 
-static void detectFirstCircle() {
-
-	roi = cv::selectROI(windowName, showingFrame);
-	detectCircles();
-}
-
-static void detectCircles() {
-
-
-	cv::Mat frameGray;
-	showingFrame.copyTo(frameGray);
-	cv::cvtColor(showingFrame, frameGray, cv::COLOR_RGB2GRAY);
-	cv::Mat binarized;
-	cv::threshold(frameGray, binarized, binVal, 255, 0);
-	cv::Mat cropped = binarized(roi);
-
-	std::vector<cv::Vec3f> circles;
-
-	// Minimum distance between circle centers
-	int minDist = cropped.rows*0.4;
-	int cannyTreshold = 5;
-	/*
-	 The accumulator threshold for the circle centers at the detection stage. 
-	 The smaller it is, the more false circles may be detected
-	*/
-	int accumulatorTreshold = 20;
-	
-	cv::HoughCircles(cropped, circles, cv::HOUGH_GRADIENT, 1, minDist, cannyTreshold, accumulatorTreshold, cropped.rows*0.2, cropped.rows*0.5);
-
-	cv::Mat display = showingFrame.clone();
-
-	if(circles.size() == 0) {
-		std::cout << "No circles detected." << std::endl;
-	} else {
-		std::cout << "Detected " << circles.size() << " circles. " << std::endl;
-		/// Draw the circles detected
-		for(size_t i = 0; i < circles.size(); i++) {
-			cv::Point center(cvRound(circles[i][0] + roi.x), cvRound(circles[i][1] + roi.y));
-			int radius = cvRound(circles[i][2]);
-			// circle center
-			circle(display, center, 3, circleColor, -1, 8, 0);
-			// circle outline
-			circle(display, center, radius, circleColor, 2, 8, 0);
-		}
-	}
-	// Save
-	//cv::imwrite(imgFolder + saveFolder + imgName + "_circles" + imgType, display);
-
-	cv::imshow(windowName, display);
-	cv::waitKey(5);
-
-	if(!askYesNo("Is this ok?")) {
-		detectFirstCircle();
-	} else {
-		std::cout << "Processing the rest of the video..." << std::endl;
-
-		for(int i = cutStartFrame; i < cutEndFrame; ++i) {
-			// do stuff
-		}
-		std::cout << "done" << std::endl;
-	}
-
-}
-
-static void binarizeCallback(int val, void * object) {
-	
-	cv::Mat srcGray = *((cv::Mat*)object);
-
-	if(val == 0) {
-		cv::imshow(windowName, srcGray);
-		return;
-	}
-
-	binVal = val;
-	/*
-	cv::Mat blurred;
-	srcGray.copyTo(blurred);
-	int err = Filter::filter(srcGray, blurred, Filter::FILTER_TYPE::BI, binVal);
-	*/
-	cv::Mat binarized;
-	srcGray.copyTo(binarized);
-	cv::threshold(srcGray, binarized, val, 255, 0);
-	
-	cv::imshow(windowName, binarized);
-}
-
-/*
-Blur trackbar callback function.
-*/
-static void blurCallback(int val, void* object) {
-	cv::Mat src = *((cv::Mat*)object);
-
-	if(val == 0) {
-		cv::imshow(windowName, src);
-		return;
-	}
-
-	//blurVal = val;
-
-	cv::Mat blurred;
-	src.copyTo(blurred);
-	int err = Filter::filter(src, blurred, Filter::FILTER_TYPE::BI, val);
-	if(err != 0) {
-		std::string errMsg = "Error while filtering.";
-		printf(errMsg.c_str());
-	}
-
-	cv::imshow(windowName, blurred);
-}
 
 static bool askYesNo(const char* promt) {
 	std::cout << promt << " (y/n)" << std::endl;
@@ -349,6 +298,7 @@ static void loadVideo(std::string &vidPath) {
 	// Debugging values. remove
 	cutStartFrame = 0;
 	cutEndFrame = initialFrameCount - 1;
+	cutLength = cutEndFrame - cutStartFrame;
 
 	cv::destroyWindow(windowCutStart);
 	//cv::destroyWindow(windowCutEnd);
