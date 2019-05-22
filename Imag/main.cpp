@@ -21,6 +21,7 @@ https://docs.opencv.org/2.4.13.2/doc/tutorials/imgproc/gausian_median_blur_bilat
 
 static void blurCallback(int val, void* data);
 static void binarizeCallback(int val, void * object);
+static void mouseCallback(int event, int x, int y, int flags, void* userdata);
 
 static void detectCircles(cv::Mat &scr_gray, cv::Mat &scr_display);
 static void detectLines(cv::Mat &scr_gray, cv::Mat &src_display);
@@ -60,7 +61,19 @@ int binVal = 1;
 /* Blur*/
 int blurVal = 3;
 
+// Dragging
+bool dragging = false;
+cv::Point dragStart(0, 0);
+cv::Point dragEnd(0, 0);
+
+cv::Scalar rectColor(10, 150, 10);
+cv::Scalar circleColor(150, 10, 10);
+
+/* All the frames in the video. */
 std::vector<cv::Mat> timeLine;
+
+/* The frame that shoud be currently shown. Take a copy for drawing. */
+cv::Mat showingFrame;
 
 
 /* Default rotation 90 works with smartphone portrait videos. */
@@ -97,9 +110,9 @@ int main() {
 
 	loadVideo(vidPath);
 
-	cv::Mat frame = timeLine[cutStartFrame];
+	showingFrame = timeLine[cutStartFrame];
 	cv::Mat frameGray;
-	cv::cvtColor(frame, frameGray, cv::COLOR_RGB2GRAY);
+	cv::cvtColor(showingFrame, frameGray, cv::COLOR_RGB2GRAY);
 
 	int kl = 3;
 	int maxKl = 25;
@@ -128,9 +141,36 @@ int main() {
 
 	std::cout << "Binarization kernel size set to " << binVal << "." << std::endl;
 
+	cv::setMouseCallback(windowName, mouseCallback, NULL);
+
 	cv::waitKey(0);
 }
 
+
+static void mouseCallback(int event, int x, int y, int flags, void* userdata) {
+	if(event == cv::EVENT_LBUTTONDOWN) {
+		if(dragging == false) {
+			std::cout << "Drag start (" << x << ", " << y << ")" << std::endl;
+			dragStart.x = x;
+			dragStart.y = y;
+			dragging = true;
+		}
+	} else if(event == cv::EVENT_LBUTTONUP) {
+		if(dragging) {
+			std::cout << "Drag end (" << x << ", " << y << ")" << std::endl;
+			dragging = false;
+		}
+	} else if(event == cv::EVENT_MOUSEMOVE) {
+		if(dragging == true) {
+			dragEnd.x = x;
+			dragEnd.y = y;
+			cv::Mat showCopy = showingFrame.clone();
+			cv::rectangle(showCopy, dragStart, dragEnd, rectColor, 2);
+			cv::imshow(windowName, showCopy);
+			//std::cout << "Draw rectangle from (" << dragStartX << ", " << dragStartY << ")" << " to (" << dragEndtX << ", " << dragEndY << ")" << std::endl;
+		}
+	}
+}
 
 static void trimStartCallbeck(int val, void* object) {
 
