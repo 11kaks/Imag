@@ -12,6 +12,7 @@
 const char windowName[] = "Imag";
 const char windowCutStart[] = "Cut";
 const char windowCutEnd[] = "Cut End";
+const char windowRoi[] = "ROI";
 
 /*
 Blurring exsamples from:
@@ -21,9 +22,9 @@ https://docs.opencv.org/2.4.13.2/doc/tutorials/imgproc/gausian_median_blur_bilat
 
 static void blurCallback(int val, void* data);
 static void binarizeCallback(int val, void * object);
-static void mouseCallback(int event, int x, int y, int flags, void* userdata);
 
-static void detectCircles(cv::Mat &scr_gray, cv::Mat &scr_display);
+static void detectFirstCircle();
+static void detectCircles();
 static void detectLines(cv::Mat &scr_gray, cv::Mat &src_display);
 
 static void loadVideo(std::string &vidPath);
@@ -57,16 +58,11 @@ int cutStartFrame = 0;
 int cutEndFrame = 100;
 
 /* Binarization treshold. */
-int binVal = 1;
-/* Blur*/
-int blurVal = 3;
+int binVal = 60;
 
-// Dragging
-bool dragging = false;
-cv::Point dragStart(0, 0);
-cv::Point dragEnd(0, 0);
+/* Region of interest. */
+cv::Rect roi;
 
-cv::Scalar rectColor(10, 150, 10);
 cv::Scalar circleColor(150, 10, 10);
 
 /* All the frames in the video. */
@@ -74,7 +70,6 @@ std::vector<cv::Mat> timeLine;
 
 /* The frame that shoud be currently shown. Take a copy for drawing. */
 cv::Mat showingFrame;
-
 
 /* Default rotation 90 works with smartphone portrait videos. */
 int rotation = 0;
@@ -85,11 +80,8 @@ int main() {
 	/// Create Windows
 	cv::namedWindow(windowName, 1);
 
-
-
 	/// Reduce the noise so we avoid false circle detection
 	//cv::GaussianBlur(srcBW, srcBW, cv::Size(9, 9), 2, 2);
-
 
 	/*
 	TODO:
@@ -99,10 +91,10 @@ int main() {
 	detect width, height and center point - ok
 	scratch the beginning and the end times - ok
 	go to first frame and:
-		detect circles
+		detect circles - ok
 		run search for the rest of the frames and follow the circle
 		save circle's center points
-	analyze stuff from center points§
+	analyze stuff from center points
 
 	*/
 
@@ -136,102 +128,45 @@ int main() {
 	cv::createTrackbar("Kernel size", windowName, &tresh, maxTresh, binarizeCallback, &frameGray);
 	binarizeCallback(tresh, &frameGray);
 
-	// wait for keypress
 	cv::waitKey(0);
 
 	std::cout << "Binarization kernel size set to " << binVal << "." << std::endl;
 
-	cv::setMouseCallback(windowName, mouseCallback, NULL);
+	detectFirstCircle();
 
 	cv::waitKey(0);
 }
 
+static void detectFirstCircle() {
 
-static void mouseCallback(int event, int x, int y, int flags, void* userdata) {
-	if(event == cv::EVENT_LBUTTONDOWN) {
-		if(dragging == false) {
-			std::cout << "Drag start (" << x << ", " << y << ")" << std::endl;
-			dragStart.x = x;
-			dragStart.y = y;
-			dragging = true;
-		}
-	} else if(event == cv::EVENT_LBUTTONUP) {
-		if(dragging) {
-			std::cout << "Drag end (" << x << ", " << y << ")" << std::endl;
-			dragging = false;
-		}
-	} else if(event == cv::EVENT_MOUSEMOVE) {
-		if(dragging == true) {
-			dragEnd.x = x;
-			dragEnd.y = y;
-			cv::Mat showCopy = showingFrame.clone();
-			cv::rectangle(showCopy, dragStart, dragEnd, rectColor, 2);
-			cv::imshow(windowName, showCopy);
-			//std::cout << "Draw rectangle from (" << dragStartX << ", " << dragStartY << ")" << " to (" << dragEndtX << ", " << dragEndY << ")" << std::endl;
-		}
-	}
+	roi = cv::selectROI(windowName, showingFrame);
+	detectCircles();
 }
 
-static void trimStartCallbeck(int val, void* object) {
-
-	if(val < timeLine.size() && val >= 0) {
-		currFrame = val;
-		cutStartFrame = val;
-		cv::imshow(windowCutStart, timeLine[currFrame]);
-	} else {
-		std::cout << "timeLine not ok"<< std::endl;
-	}
-}
-static void trimEndCallbeck(int val, void* object) {
-
-	if(val < timeLine.size() && val >= 0) {
-		currFrame = val;
-		cutStartFrame = val;
-		cv::imshow(windowCutStart, timeLine[currFrame]);
-	} else {
-		std::cout << "timeLine not ok" << std::endl;
-	}
-}
+static void detectCircles() {
 
 
-static void detectLines(cv::Mat &src_gray, cv::Mat &src_display) {
-
-	cv::Mat display = src_display.clone();
-	cv::Mat src = src_gray.clone();
-	//cv::threshold(src, src, 155, 255, 1);
-	Canny(src, src, 50, 200, 3);
-
-	std::vector<cv::Vec4i> lines;
-
-	HoughLinesP(src, lines, 1, CV_PI / 180, 50, 50, 10);
-
-	if(lines.size() == 0) {
-		std::cout << "No lines detected." << std::endl;
-	} else {
-		std::cout << "Detected " << lines.size() << " lines. " << std::endl;
-		/// Draw the detected lines
-		for(size_t i = 0; i < lines.size(); i++) {
-			cv::Vec4i l = lines[i];
-			cv::Point p1(l[0], l[1]);
-			cv::Point p2(l[2], l[3]);
-			if(abs(p1.x - p2.x) < 15) {
-				std::cout << "Detected a vertical line. " << std::endl;
-				cv::line(display, p1, p2, cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
-			}
-		}
-	}
-	cv::namedWindow("Detected lines", cv::WINDOW_AUTOSIZE);
-	cv::imshow("Detected lines", display);
-}
-
-static void detectCircles(cv::Mat &src_gray, cv::Mat &src_display) {
+	cv::Mat frameGray;
+	showingFrame.copyTo(frameGray);
+	cv::cvtColor(showingFrame, frameGray, cv::COLOR_RGB2GRAY);
+	cv::Mat binarized;
+	cv::threshold(frameGray, binarized, binVal, 255, 0);
+	cv::Mat cropped = binarized(roi);
 
 	std::vector<cv::Vec3f> circles;
 
-	/// Apply the Hough Transform to find the circles
-	cv::HoughCircles(src_gray, circles, cv::HOUGH_GRADIENT, 1, src_gray.rows / 8, 5, 30, 0, 100);
+	// Minimum distance between circle centers
+	int minDist = cropped.rows*0.4;
+	int cannyTreshold = 5;
+	/*
+	 The accumulator threshold for the circle centers at the detection stage. 
+	 The smaller it is, the more false circles may be detected
+	*/
+	int accumulatorTreshold = 20;
+	
+	cv::HoughCircles(cropped, circles, cv::HOUGH_GRADIENT, 1, minDist, cannyTreshold, accumulatorTreshold, cropped.rows*0.2, cropped.rows*0.5);
 
-	cv::Mat display = src_display.clone();
+	cv::Mat display = showingFrame.clone();
 
 	if(circles.size() == 0) {
 		std::cout << "No circles detected." << std::endl;
@@ -239,20 +174,31 @@ static void detectCircles(cv::Mat &src_gray, cv::Mat &src_display) {
 		std::cout << "Detected " << circles.size() << " circles. " << std::endl;
 		/// Draw the circles detected
 		for(size_t i = 0; i < circles.size(); i++) {
-			cv::Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+			cv::Point center(cvRound(circles[i][0] + roi.x), cvRound(circles[i][1] + roi.y));
 			int radius = cvRound(circles[i][2]);
 			// circle center
-			circle(display, center, 3, cv::Scalar(0, 255, 0), -1, 8, 0);
+			circle(display, center, 3, circleColor, -1, 8, 0);
 			// circle outline
-			circle(display, center, radius, cv::Scalar(0, 0, 255), 2, 8, 0);
+			circle(display, center, radius, circleColor, 2, 8, 0);
 		}
 	}
 	// Save
 	//cv::imwrite(imgFolder + saveFolder + imgName + "_circles" + imgType, display);
 
-	/// Show your results
-	cv::namedWindow("Circles", cv::WINDOW_AUTOSIZE);
-	cv::imshow("Circles", display);
+	cv::imshow(windowName, display);
+	cv::waitKey(5);
+
+	if(!askYesNo("Is this ok?")) {
+		detectFirstCircle();
+	} else {
+		std::cout << "Processing the rest of the video..." << std::endl;
+
+		for(int i = cutStartFrame; i < cutEndFrame; ++i) {
+			// do stuff
+		}
+		std::cout << "done" << std::endl;
+	}
+
 }
 
 static void binarizeCallback(int val, void * object) {
@@ -288,7 +234,7 @@ static void blurCallback(int val, void* object) {
 		return;
 	}
 
-	blurVal = val;
+	//blurVal = val;
 
 	cv::Mat blurred;
 	src.copyTo(blurred);
@@ -358,6 +304,8 @@ static void loadVideo(std::string &vidPath) {
 	frameHeight = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
 	initialFrameCount = cap.get(cv::CAP_PROP_FRAME_COUNT);
 	cutEndFrame = initialFrameCount;
+	roi.width = frameWidth;
+	roi.height = frameHeight;
 
 	cv::namedWindow(windowCutStart, 1);
 	//cv::namedWindow(windowCutEnd, 1);
@@ -404,4 +352,56 @@ static void loadVideo(std::string &vidPath) {
 
 	cv::destroyWindow(windowCutStart);
 	//cv::destroyWindow(windowCutEnd);
+}
+
+static void trimStartCallbeck(int val, void* object) {
+
+	if(val < timeLine.size() && val >= 0) {
+		currFrame = val;
+		cutStartFrame = val;
+		cv::imshow(windowCutStart, timeLine[currFrame]);
+	} else {
+		std::cout << "timeLine not ok" << std::endl;
+	}
+}
+static void trimEndCallbeck(int val, void* object) {
+
+	if(val < timeLine.size() && val >= 0) {
+		currFrame = val;
+		cutStartFrame = val;
+		cv::imshow(windowCutStart, timeLine[currFrame]);
+	} else {
+		std::cout << "timeLine not ok" << std::endl;
+	}
+}
+
+
+static void detectLines(cv::Mat &src_gray, cv::Mat &src_display) {
+
+	cv::Mat display = src_display.clone();
+	cv::Mat src = src_gray.clone();
+	//cv::threshold(src, src, 155, 255, 1);
+	Canny(src, src, 50, 200, 3);
+
+	std::vector<cv::Vec4i> lines;
+
+	HoughLinesP(src, lines, 1, CV_PI / 180, 50, 50, 10);
+
+	if(lines.size() == 0) {
+		std::cout << "No lines detected." << std::endl;
+	} else {
+		std::cout << "Detected " << lines.size() << " lines. " << std::endl;
+		/// Draw the detected lines
+		for(size_t i = 0; i < lines.size(); i++) {
+			cv::Vec4i l = lines[i];
+			cv::Point p1(l[0], l[1]);
+			cv::Point p2(l[2], l[3]);
+			if(abs(p1.x - p2.x) < 15) {
+				std::cout << "Detected a vertical line. " << std::endl;
+				cv::line(display, p1, p2, cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
+			}
+		}
+	}
+	cv::namedWindow("Detected lines", cv::WINDOW_AUTOSIZE);
+	cv::imshow("Detected lines", display);
 }
