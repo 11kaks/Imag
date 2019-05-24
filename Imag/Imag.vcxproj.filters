@@ -15,21 +15,21 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Filter.h">
+    <ClInclude Include="FrameUtils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="FrameUtils.h">
+    <ClInclude Include="Squatter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Filter.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="FrameUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Squatter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

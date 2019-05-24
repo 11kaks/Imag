@@ -19,13 +19,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Filter.h" />
     <ClInclude Include="FrameUtils.h" />
+    <ClInclude Include="Squatter.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Filter.cpp" />
     <ClCompile Include="FrameUtils.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Squatter.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>

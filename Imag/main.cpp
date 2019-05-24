@@ -7,8 +7,8 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/video.hpp>
 
-#include "Filter.h"
 #include "FrameUtils.h"
+#include "Squatter.h"
 
 const char windowName[] = "Imag";
 const char windowCutStart[] = "Cut";
@@ -20,16 +20,9 @@ Blurring exsamples from:
 https://docs.opencv.org/2.4.13.2/doc/tutorials/imgproc/gausian_median_blur_bilateral_filter/gausian_median_blur_bilateral_filter.html
 */
 
-
-static void blurCallback(int val, void* data);
-static void binarizeCallback(int val, void * object);
-
-static void detectFirstCircle();
-static void detectCircles();
 static void detectLines(cv::Mat &scr_gray, cv::Mat &src_display);
 
 static void loadVideo(std::string &vidPath);
-cv::Point sirkkeli(int idx);
 
 /* Console input y/n. */
 static bool askYesNo(const char* promt);
@@ -72,6 +65,7 @@ cv::Scalar circleColor(150, 10, 10);
 std::vector<cv::Mat> timeLine;
 
 std::vector<cv::Point> centerPoints;
+std::vector<float> listPosY;
 
 /* The frame that shoud be currently shown. Take a copy for drawing. */
 cv::Mat showingFrame;
@@ -143,7 +137,7 @@ int main() {
 	//detectFirstCircle();
 
 	centerPoints = std::vector<cv::Point>(cutLength);
-
+	listPosY = std::vector<float>(cutLength);
 	roi = cv::selectROI(windowName, showingFrame);
 
 	std::cout << "Processing the video..." << std::endl;
@@ -182,6 +176,7 @@ int main() {
 
 		cv::Point center(cvRound(roi.x + (roi.width/2)), cvRound(roi.y + (roi.height / 2)));
 		centerPoints[i] = center;
+		listPosY[i] = center.y;
 		circle(frame, center, 3, circleColor, -1, 8, 0);
 
 		//cv::imshow(windowName, frame);
@@ -191,6 +186,14 @@ int main() {
 	}
 
 	std::cout << "done" << std::endl;
+
+	std::cout << "Analyzing..." << std::endl;
+
+	Squatter s(listPosY);
+	s.barbellMass = 60.f;
+	s.timeStep = timePerFrameMs / 1000.f;
+	s.analyze();
+	s.printCsv();
 
 	cv::waitKey(0);
 }
