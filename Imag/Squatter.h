@@ -18,7 +18,7 @@ public:
 	float timeStep;
 
 	// Initially position in pixels from the top of the window.
-	std::vector<float> listPos;
+	std::vector<int> listPos;
 	// Distance moved in meters during one frame.
 	std::vector<float> listPosScaled;
 	// Velocity
@@ -35,7 +35,7 @@ public:
 	// Index of frames where the direction changes.
 	std::vector<int> directionChanges;
 
-	Squatter(std::vector<float> pos)
+	Squatter(std::vector<int> pos)
 	:
 		barbellMass(0.f),
 		personHeight(1.7f),

@@ -11,87 +11,57 @@
 #include "Squatter.h"
 
 const char windowName[] = "Imag";
-const char windowCutStart[] = "Cut";
-const char windowCutEnd[] = "Cut End";
-const char windowRoi[] = "ROI";
 
-static void loadVideo(std::string &vidPath);
-
-static void trimStartCallbeck(int val, void* object);
-static void trimEndCallbeck(int val, void* object);
-static void timeLineDragCallback(int val, void* object);
-
+static void loadAndPreprocess(std::string &vidPath);
 /* Console input y/n. */
 static bool askYesNo(const char* promt);
 /* Console input for an integer. */
 static int askInt(const char* promt);
 
-std::string imgFolder = "..//img//";
-std::string imgName = "kyykky";
-std::string imgType = ".jpg";
+static void trimStartCallbeck(int val, void* object);
+static void trimEndCallbeck(int val, void* object);
+static void timeLineDragCallback(int val, void* object);
 
 std::string vidFolder = "..//vid//";
-std::string vidName = "mak2";
+std::string vidName = "taka_110kg";
 std::string vidType = ".mp4";
-
-std::string saveFolder = "saved//";
 
 /* How long time a single frame takes. */
 int frameRate = 30;
-double timePerFrameMs = 33.;
+float frameTimeS = 33.f;
 int frameWidth = 120;
 int frameHeight = 120;
 int initialFrameCount = 0;
-cv::Point2d frameCenter(1, 1);
-
-int startFrame = 0;
-int endFrame = 100;
-int currFrame = 0;
-int cutStartFrame = 0;
-int cutEndFrame = 100;
+int currFrameIdx = 0;
+int trimStartFrameIdx = 0;
+int trimEndFrameIdx = 100;
 int cutLength = 0;
-
-/* Binarization treshold. */
-int binVal = 60;
-
 /* Region of interest. */
 cv::Rect roi;
-
 cv::Scalar circleColor(150, 10, 10);
-
 /* All the frames in the video. */
 std::vector<cv::Mat> timeLine;
-
+/* Found center points for visualization. */
 std::vector<cv::Point> centerPoints;
-std::vector<float> listPosY;
-
-/* The frame that shoud be currently shown. Take a copy for drawing. */
-cv::Mat showingFrame;
-
+/* Center point y-koordinate for analysis. */
+std::vector<int> listPosY;
 /* Default rotation 90 works with smartphone portrait videos. */
-int rotation = 0;
+int rotation = 90;
 
 int main() {
 
-
 	std::string vidPath = vidFolder + vidName + vidType;
 
-	loadVideo(vidPath);
-
-	cv::namedWindow(windowName, 1);
-	showingFrame = timeLine[cutStartFrame];
-	
-	centerPoints = std::vector<cv::Point>(cutLength);
-	listPosY = std::vector<float>(cutLength);
-	roi = cv::selectROI(windowName, showingFrame);
+	loadAndPreprocess(vidPath);
 
 	std::cout << "Processing the video..." << std::endl;
 
 	// Adapted from tutorial https://docs.opencv.org/3.4/d7/d00/tutorial_meanshift.html
 	cv::Mat frame, roiFrame, hsv_roi, mask;
 	// take first frame of the video
-	frame = timeLine[cutStartFrame];
+	frame = timeLine[trimStartFrameIdx];
 	// setup initial location of window
+	roi = cv::selectROI(windowName, frame);
 	// set up the ROI for tracking
 	roiFrame = frame(roi);
 	cv::cvtColor(roiFrame, hsv_roi, cv::COLOR_BGR2HSV);
@@ -107,9 +77,9 @@ int main() {
 	// Setup the termination criteria, either 10 iteration or move by atleast 1 pt
 	cv::TermCriteria term_crit(cv::TermCriteria::EPS | cv::TermCriteria::COUNT, 10, 1);
 
-	for(int i = 0; i <  cutLength; ++i) {
+	for(int i = 0; i < cutLength; ++i) {
 		cv::Mat hsv, dst;
-		frame = timeLine[i + cutStartFrame];
+		frame = timeLine[i + trimStartFrameIdx];
 		if(frame.empty())
 			break;
 		cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
@@ -119,7 +89,7 @@ int main() {
 		// Draw it on image
 		cv::rectangle(frame, roi, 255, 2);
 
-		cv::Point center(cvRound(roi.x + (roi.width/2)), cvRound(roi.y + (roi.height / 2)));
+		cv::Point center(cvRound(roi.x + (roi.width / 2)), cvRound(roi.y + (roi.height / 2)));
 		centerPoints[i] = center;
 		listPosY[i] = center.y;
 		circle(frame, center, 3, circleColor, -1, 8, 0);
@@ -127,8 +97,8 @@ int main() {
 
 	std::cout << "done" << std::endl;
 
-	// Allow user to drag the analyzed video
-	cv::destroyWindow(windowName);
+	// Allow user to drag the timeline of the analyzed video
+	// This is shown to the user while analysis is running.
 	cv::namedWindow(windowName, 1);
 	cv::createTrackbar("Frame", windowName, 0, cutLength - 1, timeLineDragCallback);
 	timeLineDragCallback(0, 0);
@@ -136,8 +106,8 @@ int main() {
 	std::cout << "Analyzing..." << std::endl;
 
 	Squatter s(listPosY);
-	s.barbellMass = 60.f;
-	s.timeStep = timePerFrameMs / 1000.f;
+	s.barbellMass = 110.f;
+	s.timeStep = frameTimeS;
 	s.analyze();
 	s.printCsv();
 
@@ -149,33 +119,27 @@ int main() {
 /*
 Load a video to the timeLine and ask for video cut.
 */
-static void loadVideo(std::string &vidPath) {
+static void loadAndPreprocess(std::string &vidPath) {
 
 	cv::VideoCapture cap(vidPath);
 	cv::Mat frame;
 
 	if(!cap.isOpened()) {
 		std::cerr << "Opening video file from " << vidPath << " failed." << std::endl;
+		return;
 	}
 
-	std::cout << "Loading video... " << std::endl;
-
-	// take the first frame for getting some basic info about the video
-	// The first frame has to be read before 
-	//cap.read(frame);
-
 	frameRate = cap.get(cv::CAP_PROP_FPS);
-	timePerFrameMs = 1.f / (float)frameRate;
+	frameTimeS = 1.f / (float)frameRate;
 	frameWidth = cap.get(cv::CAP_PROP_FRAME_WIDTH);
 	frameHeight = cap.get(cv::CAP_PROP_FRAME_HEIGHT);
 	initialFrameCount = cap.get(cv::CAP_PROP_FRAME_COUNT);
-	cutEndFrame = initialFrameCount;
+	trimEndFrameIdx = initialFrameCount - 1;
 	roi.width = frameWidth;
 	roi.height = frameHeight;
 	timeLine = std::vector<cv::Mat>(initialFrameCount);
 
-	
-
+	std::cout << "Loading video... " << std::endl;
 	for(size_t i = 0; i < timeLine.size(); ++i) {
 		cap.read(frame);
 		timeLine[i] = frame.clone();
@@ -183,41 +147,40 @@ static void loadVideo(std::string &vidPath) {
 	}
 	cap.release();
 	std::cout << "done" << std::endl;
-	
 
 	cv::destroyWindow(windowName);
 	std::cout << "Drag the timeline just before the beginning of a squat. Press any key to confirm." << std::endl;
 	cv::namedWindow(windowName, 1);
-	cv::createTrackbar("Trim start", windowName, 0, initialFrameCount - 1, trimStartCallbeck);
+	cv::createTrackbar("Trim start", windowName, 0, trimEndFrameIdx, trimStartCallbeck);
 	trimStartCallbeck(0, 0);
 	cv::waitKey(0);
 	cv::destroyWindow(windowName);
-
-	std::cout << "Cut start set to frame " << cutStartFrame << std::endl;
+	std::cout << "Cut start set to frame " << trimStartFrameIdx << std::endl;
 
 	std::cout << "Drag the timeline just after the end of a squat. Press any key to confirm." << std::endl;
-
 	cv::namedWindow(windowName, 1);
-	cv::createTrackbar("Trim end", windowName, 0, initialFrameCount - 1, trimEndCallbeck);
+	cv::createTrackbar("Trim end", windowName, 0, trimEndFrameIdx, trimEndCallbeck);
 	trimEndCallbeck(0, 0);
 	cv::waitKey(0);
 	cv::destroyWindow(windowName);
+	std::cout << "Cut end set to frame " << trimEndFrameIdx << std::endl;
 
-	std::cout << "Cut end set to frame " << cutEndFrame << std::endl;
-
-	// Debugging values. remove
+	// Debugging values to hard-code the above.
 	/*cutStartFrame = 0;
 	cutEndFrame = initialFrameCount - 1;*/
 
-	cutLength = cutEndFrame - cutStartFrame;
+	cutLength = trimEndFrameIdx - trimStartFrameIdx;
 	std::cout << "Cut length " << cutLength << " frames" << std::endl;
+
+	centerPoints = std::vector<cv::Point>(cutLength);
+	listPosY = std::vector<int>(cutLength);
 }
 
 static void timeLineDragCallback(int val, void* object) {
 	// Trackbar is zero-based
 	if(val < cutLength) {
-		currFrame = val + cutStartFrame;
-		cv::imshow(windowName, timeLine[currFrame]);
+		currFrameIdx = val + trimStartFrameIdx;
+		cv::imshow(windowName, timeLine[currFrameIdx]);
 	} else {
 		std::cout << "timeLine not ok" << std::endl;
 	}
@@ -225,9 +188,9 @@ static void timeLineDragCallback(int val, void* object) {
 
 static void trimStartCallbeck(int val, void* object) {
 	if(val < timeLine.size()) {
-		currFrame = val;
-		cutStartFrame = val;
-		cv::imshow(windowName, timeLine[currFrame]);
+		currFrameIdx = val;
+		trimStartFrameIdx = val;
+		cv::imshow(windowName, timeLine[currFrameIdx]);
 	} else {
 		std::cout << "timeLine not ok" << std::endl;
 	}
@@ -235,9 +198,9 @@ static void trimStartCallbeck(int val, void* object) {
 
 static void trimEndCallbeck(int val, void* object) {
 	if(val < timeLine.size()) {
-		currFrame = val;
-		cutEndFrame = val;
-		cv::imshow(windowName, timeLine[currFrame]);
+		currFrameIdx = val;
+		trimEndFrameIdx = val;
+		cv::imshow(windowName, timeLine[currFrameIdx]);
 	} else {
 		std::cout << "timeLine not ok" << std::endl;
 	}
