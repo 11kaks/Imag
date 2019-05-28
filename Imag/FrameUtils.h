@@ -1,16 +1,14 @@
 #pragma once
 #include <opencv2/core.hpp>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/highgui.hpp>
 
 
 class FrameUtils
 {
 public:
-	FrameUtils();
-	~FrameUtils();
-
+	FrameUtils() {}
+	~FrameUtils() {}
 	/*
+	Rotate frame in given right angle. 
 	From
 	https://stackoverflow.com/questions/16265673/rotate-image-by-90-180-or-270-degrees
 	*/
@@ -33,6 +31,4 @@ public:
 			}
 		}
 	}
-
 };
-

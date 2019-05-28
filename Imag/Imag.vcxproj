@@ -23,9 +23,7 @@
     <ClInclude Include="Squatter.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="FrameUtils.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Squatter.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
