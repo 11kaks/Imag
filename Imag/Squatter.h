@@ -75,13 +75,14 @@ public:
 		}
 		// Estimate how long distance in real world is one pixel in the video.
 		float scale = -squatDistance / (highestPoint - lowestPoint);
+		float alpha = 0.0f;
 		for(size_t i = 1; i < pixelPosition.size(); ++i) {
 			float deltaY = scale * (pixelPosition[i] - pixelPosition[i - 1]);
 			listRelativeScaledPos[i] = (pixelPosition[i] - pixelPosition[0]) * scale;
 			// Exponential smoothing for velocity
 			// https://en.wikipedia.org/wiki/Exponential_smoothing
-			float alpha = 0.40f;
-			listVel[i] = alpha * (deltaY / timeStep) + (1 - alpha)*listVel[i - 1];			
+			listVel[i] = alpha * (deltaY / timeStep) + (1 - alpha)*listVel[i - 1];
+			alpha = 0.4f;
 			listAcc[i] = (listVel[i] - listVel[i - 1]) / timeStep;
 			// Force clamped to zero because we want to know about the 
 			// upstroke of the squatter

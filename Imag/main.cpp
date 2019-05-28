@@ -12,6 +12,10 @@
 
 const char windowName[] = "Imag";
 
+/*
+Load a video to the timeLine and ask for video cut.
+Sets basic values like framerate etc.
+*/
 static void loadAndPreprocess(std::string &vidPath);
 /* Console input y/n. */
 static bool askYesNo(const char* promt);
@@ -23,7 +27,7 @@ static void trimEndCallbeck(int val, void* object);
 static void timeLineDragCallback(int val, void* object);
 
 std::string vidFolder = "..//vid//";
-std::string vidName = "taka_110kg";
+std::string vidName = "etu_80kg";
 std::string vidType = ".mp4";
 
 /* How long time a single frame takes. */
@@ -54,9 +58,8 @@ int main() {
 
 	loadAndPreprocess(vidPath);
 
-
 	// Adapted from tutorial https://docs.opencv.org/3.4/d7/d00/tutorial_meanshift.html
-	cv::Mat frame, roiFrame, hsv_roi, mask;
+	cv::Mat frame, roiFrame, hsvRoi, mask;
 	// take first frame of the video
 	frame = timeLine[trimStartFrameIdx];
 	// setup initial location of window
@@ -66,15 +69,15 @@ int main() {
 
 	// set up the ROI for tracking
 	roiFrame = frame(roi);
-	cv::cvtColor(roiFrame, hsv_roi, cv::COLOR_BGR2HSV);
-	cv::inRange(hsv_roi, cv::Scalar(0, 60, 32), cv::Scalar(180, 255, 255), mask);
+	cv::cvtColor(roiFrame, hsvRoi, cv::COLOR_BGR2HSV);
+	cv::inRange(hsvRoi, cv::Scalar(0, 60, 32), cv::Scalar(180, 255, 255), mask);
 	float range_[] = { 0, 180 };
 	const float* range[] = { range_ };
-	cv::Mat roi_hist;
+	cv::Mat roiHist;
 	int histSize[] = { 180 };
 	int channels[] = { 0 };
-	cv::calcHist(&hsv_roi, 1, channels, mask, roi_hist, 1, histSize, range);
-	cv::normalize(roi_hist, roi_hist, 0, 255, cv::NORM_MINMAX);
+	cv::calcHist(&hsvRoi, 1, channels, mask, roiHist, 1, histSize, range);
+	cv::normalize(roiHist, roiHist, 0, 255, cv::NORM_MINMAX);
 
 	// Setup the termination criteria, either 10 iteration or move by atleast 1 pt
 	cv::TermCriteria term_crit(cv::TermCriteria::EPS | cv::TermCriteria::COUNT, 10, 1);
@@ -85,7 +88,7 @@ int main() {
 		if(frame.empty())
 			break;
 		cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
-		cv::calcBackProject(&hsv, 1, channels, roi_hist, dst, range);
+		cv::calcBackProject(&hsv, 1, channels, roiHist, dst, range);
 		// apply meanshift to get the new location
 		cv::meanShift(dst, roi, term_crit);
 		// Draw it on image
@@ -108,7 +111,8 @@ int main() {
 	std::cout << "Analyzing..." << std::endl;
 
 	Squatter s(listPosY);
-	s.barbellMass = 110.f;
+	Squatter s(listPosY);
+	s.barbellMass = 80.f;
 	s.timeStep = frameTimeS;
 	s.analyze();
 	s.printCsv();
@@ -118,9 +122,6 @@ int main() {
 	cv::waitKey(0);
 }
 
-/*
-Load a video to the timeLine and ask for video cut.
-*/
 static void loadAndPreprocess(std::string &vidPath) {
 
 	cv::VideoCapture cap(vidPath);
@@ -161,7 +162,7 @@ static void loadAndPreprocess(std::string &vidPath) {
 
 	std::cout << "Drag the timeline just after the end of a squat. Press any key to confirm." << std::endl;
 	cv::namedWindow(windowName, 1);
-	cv::createTrackbar("Trim end", windowName, 0, trimEndFrameIdx, trimEndCallbeck);
+	cv::createTrackbar("Trim end", windowName, 0, trimEndFrameIdx-trimStartFrameIdx, trimEndCallbeck);
 	trimEndCallbeck(0, 0);
 	cv::waitKey(0);
 	cv::destroyWindow(windowName);
