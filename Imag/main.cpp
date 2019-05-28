@@ -54,7 +54,6 @@ int main() {
 
 	loadAndPreprocess(vidPath);
 
-	std::cout << "Processing the video..." << std::endl;
 
 	// Adapted from tutorial https://docs.opencv.org/3.4/d7/d00/tutorial_meanshift.html
 	cv::Mat frame, roiFrame, hsv_roi, mask;
@@ -62,6 +61,9 @@ int main() {
 	frame = timeLine[trimStartFrameIdx];
 	// setup initial location of window
 	roi = cv::selectROI(windowName, frame);
+
+	std::cout << "Processing the video. Don't press any key, please..." << std::endl;
+
 	// set up the ROI for tracking
 	roiFrame = frame(roi);
 	cv::cvtColor(roiFrame, hsv_roi, cv::COLOR_BGR2HSV);
@@ -197,9 +199,9 @@ static void trimStartCallbeck(int val, void* object) {
 }
 
 static void trimEndCallbeck(int val, void* object) {
-	if(val < timeLine.size()) {
-		currFrameIdx = val;
-		trimEndFrameIdx = val;
+	if(val + trimStartFrameIdx < timeLine.size()) {
+		currFrameIdx = val + trimStartFrameIdx;
+		trimEndFrameIdx = currFrameIdx;
 		cv::imshow(windowName, timeLine[currFrameIdx]);
 	} else {
 		std::cout << "timeLine not ok" << std::endl;
