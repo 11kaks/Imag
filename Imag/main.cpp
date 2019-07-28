@@ -27,7 +27,7 @@ static void trimEndCallbeck(int val, void* object);
 static void timeLineDragCallback(int val, void* object);
 
 std::string vidFolder = "..//vid//";
-std::string vidName = "etu_80kg";
+std::string vidName = "taka_80kg";
 std::string vidType = ".mp4";
 
 /* How long time a single frame takes. */
@@ -110,7 +110,6 @@ int main() {
 
 	std::cout << "Analyzing..." << std::endl;
 
-	Squatter s(listPosY);
 	Squatter s(listPosY);
 	s.barbellMass = 80.f;
 	s.timeStep = frameTimeS;
