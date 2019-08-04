@@ -75,6 +75,7 @@ public:
 		}
 		// Estimate how long distance in real world is one pixel in the video.
 		float scale = -squatDistance / (highestPoint - lowestPoint);
+		std::cout << "One pixel estimated to be " << scale * -1000 << " mm, And squat distance " << squatDistance << " m." << std::endl;
 		for(size_t i = 1; i < pixelPosition.size(); ++i) {
 			float deltaY = scale * (pixelPosition[i] - pixelPosition[i - 1]);
 			listRelativeScaledPos[i] = (pixelPosition[i] - pixelPosition[0]) * scale;

@@ -27,8 +27,10 @@ static void trimEndCallbeck(int val, void* object);
 static void timeLineDragCallback(int val, void* object);
 
 std::string vidFolder = "..//vid//";
-std::string vidName = "taka_80kg";
+std::string vidName = "etu_40kg";
 std::string vidType = ".mp4";
+float w = 40;
+
 
 /* How long time a single frame takes. */
 int frameRate = 30;
@@ -69,14 +71,24 @@ int main() {
 
 	// set up the ROI for tracking
 	roiFrame = frame(roi);
+	// Convert to HSV colorspace
 	cv::cvtColor(roiFrame, hsvRoi, cv::COLOR_BGR2HSV);
+	/*
+	inRange() is basically bandpass thresholding function.
+	Hue: any
+	Saturation: from 60 to 255 to exclude too light pixels
+	Value: from 32 to 255 to exclude some of the darkest pixels
+	*/
 	cv::inRange(hsvRoi, cv::Scalar(0, 60, 32), cv::Scalar(180, 255, 255), mask);
+	// Hue range from 0 to 180
 	float range_[] = { 0, 180 };
 	const float* range[] = { range_ };
 	cv::Mat roiHist;
+	// Separate histogram bin for every hue value.
 	int histSize[] = { 180 };
 	int channels[] = { 0 };
 	cv::calcHist(&hsvRoi, 1, channels, mask, roiHist, 1, histSize, range);
+	// Normalize from 0 to 255
 	cv::normalize(roiHist, roiHist, 0, 255, cv::NORM_MINMAX);
 
 	// Setup the termination criteria, either 10 iteration or move by atleast 1 pt
@@ -111,7 +123,7 @@ int main() {
 	std::cout << "Analyzing..." << std::endl;
 
 	Squatter s(listPosY);
-	s.barbellMass = 80.f;
+	s.barbellMass = w;
 	s.timeStep = frameTimeS;
 	s.analyze();
 	s.printCsv();
@@ -149,6 +161,9 @@ static void loadAndPreprocess(std::string &vidPath) {
 	}
 	cap.release();
 	std::cout << "done" << std::endl;
+
+	std::cout << "Video frame rate: " << frameRate << "(" << frameTimeS << "/s)" << std::endl;
+	std::cout << "Video frame height: " << frameHeight << " px" << std::endl;
 
 	cv::destroyWindow(windowName);
 	std::cout << "Drag the timeline just before the beginning of a squat. Press any key to confirm." << std::endl;
